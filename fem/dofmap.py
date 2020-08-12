@@ -18,6 +18,6 @@ DofMapWrapper = collections.namedtuple("DofMapWrapper", "dof_array num_cell_dofs
 
 def dofmap_wrapper(dofmap: dolfinx.cpp.fem.DofMap):
     num_cell_dofs = dofmap.dof_layout.num_dofs
-    dof_array = dofmap.list().array()
+    dof_array = dofmap.list().array
     size = numpy.max(dof_array) + 1
     return DofMapWrapper(dof_array, num_cell_dofs, size)

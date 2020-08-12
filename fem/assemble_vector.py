@@ -9,6 +9,8 @@ import dolfinx
 import numpy
 import ufl
 
+from odd.communication import IndexMap
+from odd import DistArray
 
 def assemble_vector(form: ufl.Form, dtype=numpy.complex128) -> numpy.ndarray:
     """
@@ -18,17 +20,25 @@ def assemble_vector(form: ufl.Form, dtype=numpy.complex128) -> numpy.ndarray:
     if _L.rank != 1:
         raise ValueError
 
-    dofmap = _L.function_space(0).dofmap
+    dofmap = _L.function_spaces[0].dofmap
 
-    b = dolfinx.fem.create_vector(_L)
-    dolfinx.cpp.fem.assemble_vector(b, _L)
-    b.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    b = dolfinx.fem.assemble_vector(form)
     vec_size = dofmap.index_map.size_local + dofmap.index_map.num_ghosts
 
     np_b = numpy.zeros(vec_size, dtype)
     with b.localForm() as b_local:
         if not b_local:
-            np_b = b.array
+            np_b[:] = b.array
         else:
-            np_b = b_local.array
-    return np_b
+            np_b[:] = b_local.array
+
+    comm = _L.mesh.mpi_comm()
+    owned_size = dofmap.index_map.size_local
+    ghosts = dofmap.index_map.ghosts
+    ghosts = numpy.sort(dofmap.index_map.ghosts)
+    # ghost_owners = dofmap.index_map.ghost_owner_rank()
+    imap = IndexMap(comm, owned_size, ghosts)
+    shape = dofmap.index_map.size_global
+    b = DistArray(shape, dtype=np_b.dtype, buffer=np_b, index_map=imap, comm=comm)
+
+    return b

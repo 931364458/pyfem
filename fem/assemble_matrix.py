@@ -10,6 +10,8 @@ import numpy
 import numba
 from scipy.sparse import coo_matrix
 
+from odd.sparse import DistMatrix
+
 from .mesh import mesh_wrapper, MeshWrapper
 from .dofmap import dofmap_wrapper, DofMapWrapper
 
@@ -36,8 +38,8 @@ def assemble_matrix(a, active_entities=None):
     _a = dolfinx.Form(a, form_compiler_parameters={
                       "scalar_type": "double complex"})._cpp_object
 
-    mesh = mesh_wrapper(_a.mesh())
-    dofmap = dofmap_wrapper(_a.function_space(0).dofmap)
+    mesh = mesh_wrapper(_a.mesh)
+    dofmap = dofmap_wrapper(_a.function_spaces[0].dofmap)
 
     data = numpy.zeros(dofmap.num_cell_dofs *
                        dofmap.dof_array.size, dtype=dtype)
@@ -57,7 +59,7 @@ def assemble_matrix(a, active_entities=None):
     if ufc_form.num_exterior_facet_integrals:
         active_facets = active_entities.get(
             "facets", mesh.topology.boundary_facets)
-        facet_data = facet_info(_a.mesh(), active_facets)
+        facet_data = facet_info(_a.mesh, active_facets)
         facet_integral = ufc_form.create_exterior_facet_integral(-1)
         kernel = facet_integral.tabulate_tensor
         assemble_facets(
@@ -66,6 +68,7 @@ def assemble_matrix(a, active_entities=None):
 
     local_mat = coo_matrix((data, sparsity_pattern(dofmap)),
                            shape=(dofmap.size, dofmap.size)).tocsr()
+
     return local_mat
 
 
@@ -130,10 +133,10 @@ def facet_info(mesh, active_facets):
     # FIXME: Refactor this function using the wrapper
     # get facet-cell and cell-facet connections
     tdim = mesh.topology.dim
-    c2f = mesh.topology.connectivity(tdim, tdim - 1).array()
-    c2f_offsets = mesh.topology.connectivity(tdim, tdim - 1).offsets()
-    f2c = mesh.topology.connectivity(tdim - 1, tdim).array()
-    f2c_offsets = mesh.topology.connectivity(tdim - 1, tdim).offsets()
+    c2f = mesh.topology.connectivity(tdim, tdim - 1).array
+    c2f_offsets = mesh.topology.connectivity(tdim, tdim - 1).offsets
+    f2c = mesh.topology.connectivity(tdim - 1, tdim).array
+    f2c_offsets = mesh.topology.connectivity(tdim - 1, tdim).offsets
     facet_data = numpy.zeros((active_facets.size, 2), dtype=numpy.int32)
 
     @numba.njit(fastmath=True)

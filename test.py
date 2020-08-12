@@ -11,7 +11,7 @@ from scipy.sparse.linalg import spsolve
 comm = MPI.COMM_WORLD
 mesh = dolfinx.UnitIntervalMesh(comm, 10)
 
-mesh = dolfinx.UnitSquareMesh(comm, 2000, 2000, ghost_mode=dolfinx.cpp.mesh.GhostMode.shared_facet)
+mesh = dolfinx.UnitSquareMesh(comm, 10 , 10, ghost_mode=dolfinx.cpp.mesh.GhostMode.shared_facet)
 n = ufl.FacetNormal(mesh)
 k0 = 10
 
@@ -37,22 +37,6 @@ a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - k0**2 * ufl.inner(u, v) * ufl
     + 1j * k0 * ufl.inner(u, v) * ufl.ds
 L = ufl.inner(g, v) * ufl.ds
 
-# Assemble distribute Matrix (odd format)
-# A = assemble_matrix(a)
-# Assemble distribute vector
 b = assemble_vector(L)
-bp = dolfinx.fem.assemble_vector(L)
 
 
-t = MPI.Wtime()
-for i in range(100):
-    v_odd = numpy.vdot(b, b)
-t = MPI.Wtime() - t
-
-tpetsc = MPI.Wtime()
-for i in range(100):
-    v_petsc = bp.dot(bp)
-tpetsc = MPI.Wtime() - tpetsc
-
-if comm.rank == 0:
-    print(t/ tpetsc)

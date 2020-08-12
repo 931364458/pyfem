@@ -42,6 +42,6 @@ def geometry_wrapper(geometry: dolfinx.cpp.mesh.Geometry):
 
     # crop points according to dimension
     x = geometry.x[:, :dim]
-    x_dofs = geometry.dofmap.array()
-    pos = geometry.dofmap.offsets()
+    x_dofs = geometry.dofmap.array
+    pos = geometry.dofmap.offsets
     return GeometryWrapper(dim, x, x_dofs, pos)
