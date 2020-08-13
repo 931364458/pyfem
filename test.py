@@ -4,14 +4,14 @@ import numpy
 from mpi4py import MPI
 from dolfinx.io import XDMFFile
 from fem import assemble_matrix, assemble_vector
-import odd
+from odd.sparse import DistMatrix
 from petsc4py import PETSc
 from scipy.sparse.linalg import spsolve
 
 comm = MPI.COMM_WORLD
 mesh = dolfinx.UnitIntervalMesh(comm, 10)
 
-mesh = dolfinx.UnitSquareMesh(comm, 10 , 10, ghost_mode=dolfinx.cpp.mesh.GhostMode.shared_facet)
+mesh = dolfinx.UnitSquareMesh(comm, 10 , 10)
 n = ufl.FacetNormal(mesh)
 k0 = 10
 
@@ -37,6 +37,25 @@ a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - k0**2 * ufl.inner(u, v) * ufl
     + 1j * k0 * ufl.inner(u, v) * ufl.ds
 L = ufl.inner(g, v) * ufl.ds
 
+
+A = assemble_matrix(a)
 b = assemble_vector(L)
+
+imap = b._map
+shape = (imap.global_size, imap.global_size)
+A = DistMatrix(A, shape, imap, imap)
+
+t = MPI.Wtime()
+c = A.matvec(b)
+t = MPI.Wtime() - t
+
+Ap = dolfinx.fem.assemble_matrix(a)
+bp = dolfinx.fem.assemble_vector(L)
+Ap.assemble()
+
+tpetsc = MPI.Wtime()
+xp = bp.duplicate()
+Ap.mult(bp, xp)
+tpetsc = MPI.Wtime() - tpetsc
 
 
