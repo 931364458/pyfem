@@ -23,6 +23,8 @@ tdim = mesh.topology.dim
 cfc = mesh.topology.connectivity(tdim - 1, tdim)
 boundary_facets = numpy.where(numpy.diff(cfc.offsets)==1)[0]
 
+# dolfinx.mesh.locate_entities_boundary(tdim-1, )
+
 n = ufl.FacetNormal(mesh)
 k0 = 10
 
@@ -52,12 +54,17 @@ T = 1j * k0 * ufl.inner(u, v) * ufl.ds
 
 # Assemble petsc distribute Matrix
 A = dolfinx.fem.assemble_matrix(a)
+A.assemble()
 
-# Assemble scipy matrix on scr format
+# Assemble scipy matrix on csr format
 active_entities = {"facets": boundary_facets}
 Aij = assemble_matrix(T, active_entities)
 
 
-print(A.local_size, Aij.shape)
+indices = V.dofmap.index_map.indices(True).astype(numpy.int32)
+is_A = PETSc.IS().createGeneral(indices)
+lA = A.createSubMatrices(is_A)[0]
+
+print(lA.local_size, Aij.shape)
 
 
