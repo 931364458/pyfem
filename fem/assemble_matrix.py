@@ -10,7 +10,7 @@ import numpy
 import numba
 from scipy.sparse import coo_matrix
 
-from odd.sparse import DistMatrix
+# from odd.sparse import DistMatrix
 
 from .mesh import mesh_wrapper, MeshWrapper
 from .dofmap import dofmap_wrapper, DofMapWrapper

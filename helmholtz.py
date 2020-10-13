@@ -1,17 +1,28 @@
+# Copyright (C) 2020 Igor A. Baratta
+#
+# This file is part of odd
+#
+# SPDX-License-Identifier:    LGPL-3.0-or-later
+
 import ufl
 import dolfinx
 import numpy
 from mpi4py import MPI
 from dolfinx.io import XDMFFile
-from fem import assemble_matrix, assemble_vector
-import odd
+from fem import assemble_matrix
 from petsc4py import PETSc
 from scipy.sparse.linalg import spsolve
 
+# Create/read mesh
 comm = MPI.COMM_WORLD
-mesh = dolfinx.UnitIntervalMesh(comm, 10)
+mesh = dolfinx.UnitSquareMesh(comm, 200, 200, ghost_mode=dolfinx.cpp.mesh.GhostMode.shared_facet)
+mesh.topology.create_connectivity_all()
 
-mesh = dolfinx.UnitSquareMesh(comm, 2000, 2000, ghost_mode=dolfinx.cpp.mesh.GhostMode.shared_facet)
+# find interace faces
+tdim = mesh.topology.dim
+cfc = mesh.topology.connectivity(tdim - 1, tdim)
+boundary_facets = numpy.where(numpy.diff(cfc.offsets)==1)[0]
+
 n = ufl.FacetNormal(mesh)
 k0 = 10
 
@@ -37,22 +48,16 @@ a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - k0**2 * ufl.inner(u, v) * ufl
     + 1j * k0 * ufl.inner(u, v) * ufl.ds
 L = ufl.inner(g, v) * ufl.ds
 
-# Assemble distribute Matrix (odd format)
-# A = assemble_matrix(a)
-# Assemble distribute vector
-b = assemble_vector(L)
-bp = dolfinx.fem.assemble_vector(L)
+T = 1j * k0 * ufl.inner(u, v) * ufl.ds
+
+# Assemble petsc distribute Matrix
+A = dolfinx.fem.assemble_matrix(a)
+
+# Assemble scipy matrix on scr format
+active_entities = {"facets": boundary_facets}
+Aij = assemble_matrix(T, active_entities)
 
 
-t = MPI.Wtime()
-for i in range(100):
-    v_odd = numpy.vdot(b, b)
-t = MPI.Wtime() - t
+print(A.local_size, Aij.shape)
 
-tpetsc = MPI.Wtime()
-for i in range(100):
-    v_petsc = bp.dot(bp)
-tpetsc = MPI.Wtime() - tpetsc
 
-if comm.rank == 0:
-    print(t/ tpetsc)

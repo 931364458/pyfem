@@ -11,6 +11,6 @@ __all__ = ["assemble_matrix", "assemble_matrix", "apply_bc", "MeshWrapper"]
 
 
 from .assemble_matrix import assemble_matrix
-from .assemble_vector import assemble_vector
+# from .assemble_vector import assemble_vector
 from .dirichlet_bc import apply_bc
 from .mesh import MeshWrapper
